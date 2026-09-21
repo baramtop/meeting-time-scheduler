@@ -96,9 +96,11 @@ module.exports = async (req, res) => {
         return;
       }
 
-      if (action === 'set_default') {
+      // 관리자 전용 동작: 이름이 관리자이고 비밀번호가 맞아야 함
+      const ADMIN_ACTIONS = ['set_default', 'finalize', 'unfinalize'];
+      if (ADMIN_ACTIONS.includes(action)) {
         if (name !== ADMIN_NAME) {
-          res.status(403).json({ error: '관리자만 기본 일정을 변경할 수 있습니다.' });
+          res.status(403).json({ error: '관리자만 할 수 있습니다.' });
           return;
         }
         const adminPin = process.env.ADMIN_PIN;
@@ -110,6 +112,9 @@ module.exports = async (req, res) => {
           res.status(403).json({ error: '관리자 비밀번호가 올바르지 않습니다.' });
           return;
         }
+      }
+
+      if (action === 'set_default') {
         const dt = new Date(body.dateTime);
         if (!body.dateTime || isNaN(dt.getTime())) {
           res.status(400).json({ error: '날짜/시간을 입력해주세요.' });

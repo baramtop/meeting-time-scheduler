@@ -22,6 +22,7 @@ const el = {
   bestBox: document.getElementById('best-box'),
   dayList: document.getElementById('day-list'),
   confirmTime: document.getElementById('confirm-time'),
+  confirmBlock: document.getElementById('confirm-block'),
   adminCard: document.getElementById('admin-card'),
   adminDatetime: document.getElementById('admin-datetime'),
   adminRecurring: document.getElementById('admin-recurring'),
@@ -30,6 +31,21 @@ const el = {
 
 let currentState = null;
 let renderedDefault = null;
+let adminPin = ''; // 페이지가 열려있는 동안만 메모리에 보관 (저장 안 함)
+
+function isAdmin() {
+  return getMyName() === ADMIN_NAME;
+}
+
+// 관리자 비밀번호를 물어봄 (취소하면 null)
+function askPin() {
+  if (!adminPin) {
+    const v = prompt('관리자 비밀번호를 입력하세요.');
+    if (!v) return null;
+    adminPin = v;
+  }
+  return adminPin;
+}
 
 function getMyName() {
   return (localStorage.getItem(NAME_KEY) || '').trim();
@@ -101,6 +117,7 @@ async function postAction(payload) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (res.status === 403) adminPin = ''; // 비밀번호가 틀렸을 수 있으니 다시 묻도록
     alert(err.error || '요청에 실패했습니다.');
     throw new Error(err.error || 'request failed');
   }
@@ -172,7 +189,7 @@ function renderDays(state, myName) {
         <div class="day-actions">
           <button class="day-btn yes ${mine === 'yes' ? 'active' : ''}" data-day="${s.date}" data-val="yes" ${dis}>가능</button>
           <button class="day-btn no ${mine === 'no' ? 'active' : ''}" data-day="${s.date}" data-val="no" ${dis}>불가</button>
-          <button class="day-btn fin-btn" data-confirm="${s.date}" ${dis}>이 날로 확정</button>
+          ${isAdmin() ? `<button class="day-btn fin-btn" data-confirm="${s.date}" ${dis}>이 날로 확정</button>` : ''}
         </div>
         <div class="from-row">
           <label>몇 시부터 가능? (비우면 시간 상관없음)</label>
@@ -187,7 +204,10 @@ function render(state) {
   currentState = state;
   const myName = getMyName();
 
-  el.adminCard.hidden = myName !== ADMIN_NAME;
+  el.adminCard.hidden = !isAdmin();
+  el.confirmBlock.hidden = !isAdmin();
+  el.finalizeDefaultBtn.hidden = !isAdmin();
+  el.unfinalizeBtn.hidden = !isAdmin();
 
   // 기본 일정
   el.defaultTimeDisplay.textContent = formatDateTime(state.defaultDateTime);
@@ -261,12 +281,16 @@ el.btnNo.addEventListener('click', async () => {
 el.finalizeDefaultBtn.addEventListener('click', async () => {
   if (!currentState) return;
   if (!confirm('기본 일정으로 이번 주 일정을 확정할까요?')) return;
-  render(await postAction({ action: 'finalize', dateTime: currentState.defaultDateTime }));
+  const pin = askPin();
+  if (!pin) return;
+  render(await postAction({ action: 'finalize', dateTime: currentState.defaultDateTime, pin }));
 });
 
 el.unfinalizeBtn.addEventListener('click', async () => {
   if (!confirm('확정을 취소할까요?')) return;
-  render(await postAction({ action: 'unfinalize' }));
+  const pin = askPin();
+  if (!pin) return;
+  render(await postAction({ action: 'unfinalize', pin }));
 });
 
 el.dayList.addEventListener('click', async (e) => {
@@ -302,7 +326,9 @@ el.dayList.addEventListener('click', async (e) => {
 ⚠️ 이 시간에 아직 안 되는 사람: ${dayInfo.map(([n, t]) => `${n}(${t}부터)`).join(', ')}`
       : '';
     if (!confirm(`${formatDateTime(dt.toISOString())}로 확정할까요?${warn}`)) return;
-    render(await postAction({ action: 'finalize', dateTime: dt.toISOString() }));
+    const pin = askPin();
+    if (!pin) return;
+    render(await postAction({ action: 'finalize', dateTime: dt.toISOString(), pin }));
   }
 });
 
@@ -323,7 +349,7 @@ el.adminSetBtn.addEventListener('click', async () => {
     ? '기본 일정을 변경하고 다음 주부터도 같은 요일·시간으로 할까요? (이번 주 응답이 초기화됩니다)'
     : '이번 주 기본 일정만 변경할까요? (이번 주 응답이 초기화됩니다)';
   if (!confirm(msg)) return;
-  const pin = prompt('관리자 비밀번호를 입력하세요.');
+  const pin = askPin();
   if (!pin) return;
   const state = await postAction({ action: 'set_default', dateTime: new Date(v).toISOString(), recurring, pin });
   el.adminDatetime.value = '';

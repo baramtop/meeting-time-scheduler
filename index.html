@@ -57,11 +57,13 @@
       <p class="hint" style="margin-top:0">기본 일정이 어려우면 요일마다 <b>가능</b> 또는 <b>불가</b>를 눌러 주세요. 다시 누르면 해제돼요.</p>
       <div class="best-box" id="best-box"></div>
       <ul id="day-list" class="day-list"></ul>
-      <div class="confirm-time-row">
-        <label for="confirm-time">확정 시간</label>
-        <input id="confirm-time" type="time" value="20:00" />
+      <div id="confirm-block" hidden>
+        <div class="confirm-time-row">
+          <label for="confirm-time">확정 시간</label>
+          <input id="confirm-time" type="time" value="20:00" />
+        </div>
+        <p class="hint">각 요일의 "이 날로 확정"을 누르면 위 시간으로 확정돼요. (관리자 전용)</p>
       </div>
-      <p class="hint">각 요일의 "이 날로 확정"을 누르면 위 시간으로 확정돼요.</p>
     </section>
 
     <section class="card" id="admin-card" hidden>
