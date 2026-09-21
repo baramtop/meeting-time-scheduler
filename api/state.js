@@ -1,4 +1,29 @@
-const { kv } = require('@vercel/kv');
+const { createClient } = require('redis');
+
+// 서버리스 인스턴스가 살아있는 동안 연결을 재사용
+let clientPromise = null;
+function getClient() {
+  if (!clientPromise) {
+    const client = createClient({ url: process.env.REDIS_URL });
+    client.on('error', (e) => console.error('redis error', e.message));
+    clientPromise = client.connect().then(() => client).catch((e) => {
+      clientPromise = null;
+      throw e;
+    });
+  }
+  return clientPromise;
+}
+
+const kv = {
+  async get(key) {
+    const raw = await (await getClient()).get(key);
+    return raw ? JSON.parse(raw) : null;
+  },
+  async set(key, value, opts) {
+    const args = opts && opts.ex ? { EX: opts.ex } : undefined;
+    await (await getClient()).set(key, JSON.stringify(value), args);
+  },
+};
 
 const ADMIN_NAME = '면죄';
 const CONFIG_KEY = 'meeting:config';

@@ -4,6 +4,6 @@
   "private": true,
   "description": "매주 모임 시간을 다같이 정하는 간단한 웹앱",
   "dependencies": {
-    "@vercel/kv": "^2.0.0"
+    "redis": "^4.7.0"
   }
 }
