@@ -38,6 +38,9 @@ function getUpcomingDefault(config) {
   const diff = (config.weekday - k.getUTCDay() + 7) % 7;
   let ms = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + diff, config.hour, config.minute) - KST_MS;
   if (ms <= nowMs) ms += 7 * 24 * 60 * 60 * 1000;
+  // 관리자가 '클리어'한 주는 건너뜀 (skipBefore 이전/같은 일정은 다음 주로 넘김)
+  const skip = config.skipBefore ? new Date(config.skipBefore).getTime() : 0;
+  while (ms <= skip) ms += 7 * 24 * 60 * 60 * 1000;
   return new Date(ms);
 }
 
@@ -97,7 +100,7 @@ module.exports = async (req, res) => {
       }
 
       // 관리자 전용 동작: 이름이 관리자이고 비밀번호가 맞아야 함
-      const ADMIN_ACTIONS = ['set_default', 'finalize', 'unfinalize'];
+      const ADMIN_ACTIONS = ['set_default', 'clear_week', 'finalize', 'unfinalize'];
       if (ADMIN_ACTIONS.includes(action)) {
         if (name !== ADMIN_NAME) {
           res.status(403).json({ error: '관리자만 할 수 있습니다.' });
@@ -123,13 +126,25 @@ module.exports = async (req, res) => {
         let newConfig = config;
         if (body.recurring) {
           const k = new Date(dt.getTime() + KST_MS);
-          newConfig = { weekday: k.getUTCDay(), hour: k.getUTCHours(), minute: k.getUTCMinutes() };
+          newConfig = { ...config, weekday: k.getUTCDay(), hour: k.getUTCHours(), minute: k.getUTCMinutes() };
           await kv.set(CONFIG_KEY, newConfig);
         }
         // 기본 일정이 바뀌면 기존 응답/확정은 초기화
         const newWeekId = getWeekId(getUpcomingDefault(newConfig));
         const fresh = emptyState(newWeekId, dt);
         await kv.set(`meeting:${newWeekId}`, fresh, { ex: TTL });
+        res.status(200).json(fresh);
+        return;
+      }
+
+      if (action === 'clear_week') {
+        // 지금 표시 중인 주를 비우고 다음 주 일정으로 넘어감
+        const current = (await kv.get(key)) || emptyState(weekId, defaultDate);
+        const newConfig = { ...config, skipBefore: current.defaultDateTime };
+        await kv.set(CONFIG_KEY, newConfig);
+        const nextDate = getUpcomingDefault(newConfig);
+        const fresh = emptyState(getWeekId(nextDate), nextDate);
+        await kv.set(`meeting:${fresh.weekId}`, fresh, { ex: TTL });
         res.status(200).json(fresh);
         return;
       }

@@ -27,6 +27,7 @@ const el = {
   adminDatetime: document.getElementById('admin-datetime'),
   adminRecurring: document.getElementById('admin-recurring'),
   adminSetBtn: document.getElementById('admin-set-btn'),
+  adminClearBtn: document.getElementById('admin-clear-btn'),
 };
 
 let currentState = null;
@@ -336,6 +337,13 @@ el.dayList.addEventListener('change', async (e) => {
   const input = e.target.closest('[data-from-day]');
   if (!input) return;
   render(await postAction({ action: 'set_from', date: input.dataset.fromDay, from: input.value }));
+});
+
+el.adminClearBtn.addEventListener('click', async () => {
+  if (!confirm('지금 주의 응답·확정을 모두 지우고 다음 주 일정으로 넘어갑니다. 계속할까요?')) return;
+  const pin = askPin();
+  if (!pin) return;
+  render(await postAction({ action: 'clear_week', pin }));
 });
 
 el.adminSetBtn.addEventListener('click', async () => {
