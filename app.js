@@ -61,10 +61,11 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-// 기본 일정이 속한 주(월~일)의 7일
+// 공대 주기는 수요일 시작: 기본 일정이 속한 수~화 7일
+const WEEK_START_DOW = 3;
 function weekDays(defaultIso) {
   const k = toKst(defaultIso);
-  const offset = (k.getUTCDay() + 6) % 7; // 월요일까지 거슬러 올라갈 일수
+  const offset = (k.getUTCDay() - WEEK_START_DOW + 7) % 7; // 수요일까지 거슬러 올라갈 일수
   const days = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() - offset + i));
