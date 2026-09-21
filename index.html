@@ -3,20 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>모임 시간 정하기</title>
+<title>공대 일정 정하기</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>📅 모임 시간 정하기</h1>
-      <p class="sub">기본 일정에 가능/불가능을 표시해요</p>
+      <h1>⚔️ 공대 일정 정하기</h1>
+      <p class="sub">아이온2 · 비탄의 설원 공대</p>
+      <p class="sub">기본 일정은 매주 수요일 저녁이에요</p>
     </header>
 
     <section class="card" id="name-card">
       <label for="name-input">내 이름</label>
       <div class="row">
-        <input id="name-input" type="text" placeholder="이름을 입력하세요" autocomplete="off" />
+        <input id="name-input" type="text" placeholder="캐릭터/닉네임을 입력하세요" autocomplete="off" />
         <button id="name-save-btn">저장</button>
       </div>
       <p class="hint" id="name-current"></p>
@@ -24,7 +25,7 @@
 
     <section class="card" id="finalized-card" hidden>
       <div class="finalized-banner">
-        <div class="finalized-label">✅ 이번 주 모임 확정</div>
+        <div class="finalized-label">✅ 이번 주 공대 일정 확정</div>
         <div class="finalized-time" id="finalized-time"></div>
         <div class="finalized-meta" id="finalized-meta"></div>
         <button id="unfinalize-btn" class="ghost-btn">확정 취소</button>
@@ -32,7 +33,7 @@
     </section>
 
     <section class="card" id="default-card">
-      <h2>기본 일정</h2>
+      <h2>1. 기본 일정, 되나요?</h2>
       <div class="time-display" id="default-time-display">-</div>
       <div class="row buttons">
         <button id="btn-yes" class="btn yes">가능</button>
@@ -48,7 +49,19 @@
           <ul id="no-list" class="tag-list"></ul>
         </div>
       </div>
-      <button id="finalize-default-btn" class="ghost-btn">이 시간으로 확정하기</button>
+      <button id="finalize-default-btn" class="ghost-btn">기본 일정으로 확정하기</button>
+    </section>
+
+    <section class="card" id="days-card">
+      <h2>2. 이번 주 되는 날 / 안 되는 날</h2>
+      <p class="hint" style="margin-top:0">기본 일정이 어려우면 요일마다 <b>가능</b> 또는 <b>불가</b>를 눌러 주세요. 다시 누르면 해제돼요.</p>
+      <div class="best-box" id="best-box"></div>
+      <ul id="day-list" class="day-list"></ul>
+      <div class="confirm-time-row">
+        <label for="confirm-time">확정 시간</label>
+        <input id="confirm-time" type="time" value="20:00" />
+      </div>
+      <p class="hint">각 요일의 "이 날로 확정"을 누르면 위 시간으로 확정돼요.</p>
     </section>
 
     <section class="card" id="admin-card" hidden>
@@ -61,17 +74,7 @@
       <label class="check-row"><input id="admin-recurring" type="checkbox" /> 다음 주부터도 이 요일·시간을 기본으로</label>
     </section>
 
-    <section class="card" id="alt-card">
-      <h2>대안 시간 제안</h2>
-      <p class="hint">수요일 8시가 안 되는 분이 있다면, 다른 날짜/시간을 제안하고 투표해보세요.</p>
-      <div class="row">
-        <input id="alt-datetime" type="datetime-local" />
-        <button id="alt-propose-btn">제안하기</button>
-      </div>
-      <ul id="proposal-list" class="proposal-list"></ul>
-    </section>
-
-    <p class="footer-note">참여인원 8~10명 · 매주 자동으로 새 일정으로 초기화됩니다</p>
+    <p class="footer-note">공대원 8~10명 · 매주 자동으로 새 일정으로 초기화됩니다</p>
   </div>
 
   <script src="app.js"></script>

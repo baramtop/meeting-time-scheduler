@@ -174,56 +174,97 @@ button:hover { background: var(--primary-dark); }
   color: var(--no);
 }
 
-.proposal-list {
+.best-box {
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f4f4f5;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.best-box.good { background: var(--yes-bg); color: var(--yes); }
+.best-box.good span { font-size: 12px; opacity: 0.85; }
+.best-box.warn { background: #fffbeb; color: #b45309; }
+
+.day-list {
   list-style: none;
-  margin: 14px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.proposal-item {
+.day-row {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
+}
+.day-row.is-best { border-color: var(--yes); box-shadow: 0 0 0 1px var(--yes) inset; }
+.day-row.is-past { opacity: 0.45; }
+
+.day-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.proposal-time {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.proposal-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.proposal-actions {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  flex-shrink: 0;
 }
+.day-label { font-size: 15px; font-weight: 700; }
+.day-count { font-size: 12px; color: var(--text-muted); margin-left: auto; }
 
-.vote-btn {
-  background: #eef2ff;
-  color: var(--primary);
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.badge.base { background: #eef2ff; color: var(--primary); }
+.badge.best { background: var(--yes-bg); color: var(--yes); }
+.badge.fin { background: var(--yes); color: #fff; }
+
+.day-names { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+.no-names { color: var(--no); }
+.yes-names { color: var(--yes); }
+
+.day-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.day-btn {
+  flex: 1;
+  padding: 9px 6px;
   font-size: 13px;
-  padding: 8px 10px;
+  background: #e5e5ea;
+  color: #1c1e21;
 }
-.vote-btn.voted { background: var(--primary); color: white; }
-
-.finalize-small-btn {
+.day-btn:hover { background: #d4d4d8; }
+.day-btn.yes.active { background: var(--yes); color: #fff; }
+.day-btn.no.active { background: var(--no); color: #fff; }
+.day-btn.fin-btn {
+  flex: 1.4;
   background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  font-size: 12px;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+.day-btn.fin-btn:hover { background: #eef2ff; }
+.day-btn:disabled { cursor: not-allowed; }
+
+.confirm-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.confirm-time-row label { margin: 0; }
+input[type="time"] {
   padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fafafa;
+  color: var(--text);
 }
 
 .finalized-banner {
@@ -264,7 +305,12 @@ button:hover { background: var(--primary-dark); }
   }
   input[type="text"], input[type="datetime-local"] { background: #17181c; color: var(--text); }
   .time-display { background: #23233a; }
-  .vote-btn { background: #23233a; }
+  .day-btn { background: #33343a; color: var(--text); }
+  .day-btn:hover { background: #3f4047; }
+  .best-box { background: #26272c; }
+  .best-box.warn { background: #3a2a10; color: #fbbf24; }
+  .badge.base, .day-btn.fin-btn:hover { background: #23233a; }
+  input[type="time"] { background: #17181c; color: var(--text); }
 }
 
 .check-row {

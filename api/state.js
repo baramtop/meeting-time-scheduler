@@ -29,6 +29,7 @@ const ADMIN_NAME = '면죄';
 const CONFIG_KEY = 'meeting:config';
 const DEFAULT_CONFIG = { weekday: 3, hour: 20, minute: 0 }; // 수요일 20:00 (KST)
 const KST_MS = 9 * 60 * 60 * 1000;
+const TTL = 60 * 60 * 24 * 21;
 
 // 서버 타임존(UTC)과 무관하게 KST 기준으로 계산
 function getUpcomingDefault(config) {
@@ -50,14 +51,25 @@ function getWeekId(date) {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
+// ISO 시각 -> KST 기준 'YYYY-MM-DD'
+function kstDateStr(iso) {
+  return new Date(new Date(iso).getTime() + KST_MS).toISOString().slice(0, 10);
+}
+
 function emptyState(weekId, defaultDate) {
   return {
     weekId,
     defaultDateTime: defaultDate.toISOString(),
     responses: {},
-    proposals: [],
+    availability: {}, // { 이름: { 'YYYY-MM-DD': 'yes' | 'no' } }
     finalized: null,
   };
+}
+
+function normalize(state) {
+  state.responses = state.responses || {};
+  state.availability = state.availability || {};
+  return state;
 }
 
 module.exports = async (req, res) => {
@@ -69,20 +81,21 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET') {
       const state = (await kv.get(key)) || emptyState(weekId, defaultDate);
-      res.status(200).json(state);
+      res.status(200).json(normalize(state));
       return;
     }
 
     if (req.method === 'POST') {
       const body = req.body || {};
-      const { action, name } = body;
-      if (!name || !String(name).trim()) {
+      const { action } = body;
+      const name = String(body.name || '').trim();
+      if (!name) {
         res.status(400).json({ error: '이름을 입력해주세요.' });
         return;
       }
 
       if (action === 'set_default') {
-        if (String(name).trim() !== ADMIN_NAME) {
+        if (name !== ADMIN_NAME) {
           res.status(403).json({ error: '관리자만 기본 일정을 변경할 수 있습니다.' });
           return;
         }
@@ -109,46 +122,41 @@ module.exports = async (req, res) => {
         // 기본 일정이 바뀌면 기존 응답/확정은 초기화
         const newWeekId = getWeekId(getUpcomingDefault(newConfig));
         const fresh = emptyState(newWeekId, dt);
-        await kv.set(`meeting:${newWeekId}`, fresh, { ex: 60 * 60 * 24 * 21 });
+        await kv.set(`meeting:${newWeekId}`, fresh, { ex: TTL });
         res.status(200).json(fresh);
         return;
       }
 
-      let state = (await kv.get(key)) || emptyState(weekId, defaultDate);
+      const state = normalize((await kv.get(key)) || emptyState(weekId, defaultDate));
+      const defaultDay = kstDateStr(state.defaultDateTime);
 
       if (action === 'respond') {
-        state.responses[name] = body.value === 'no' ? 'no' : 'yes';
-      } else if (action === 'propose') {
-        const dateTime = body.dateTime;
-        if (!dateTime) {
-          res.status(400).json({ error: '날짜/시간을 입력해주세요.' });
+        // 기본 일정에 대한 가능/불가능 (요일별 체크에도 같이 반영)
+        const value = body.value === 'no' ? 'no' : 'yes';
+        state.responses[name] = value;
+        state.availability[name] = { ...(state.availability[name] || {}), [defaultDay]: value };
+      } else if (action === 'set_day') {
+        const date = String(body.date || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          res.status(400).json({ error: '날짜가 올바르지 않습니다.' });
           return;
         }
-        const existing = state.proposals.find((p) => p.dateTime === dateTime);
-        if (!existing) {
-          state.proposals.push({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            dateTime,
-            createdBy: name,
-            votes: [name],
-          });
-        } else if (!existing.votes.includes(name)) {
-          existing.votes.push(name);
-        }
-      } else if (action === 'vote') {
-        const proposal = state.proposals.find((p) => p.id === body.proposalId);
-        if (proposal) {
-          const idx = proposal.votes.indexOf(name);
-          if (idx >= 0) proposal.votes.splice(idx, 1);
-          else proposal.votes.push(name);
+        const mine = { ...(state.availability[name] || {}) };
+        if (body.value === 'yes' || body.value === 'no') mine[date] = body.value;
+        else delete mine[date];
+        state.availability[name] = mine;
+        // 기본 일정 날짜를 바꾸면 기본 일정 응답도 같이 맞춤
+        if (date === defaultDay) {
+          if (mine[date]) state.responses[name] = mine[date];
+          else delete state.responses[name];
         }
       } else if (action === 'finalize') {
-        state.finalized = {
-          dateTime: body.dateTime,
-          proposalId: body.proposalId || null,
-          by: name,
-          at: new Date().toISOString(),
-        };
+        const dt = new Date(body.dateTime);
+        if (!body.dateTime || isNaN(dt.getTime())) {
+          res.status(400).json({ error: '확정할 날짜/시간이 올바르지 않습니다.' });
+          return;
+        }
+        state.finalized = { dateTime: dt.toISOString(), by: name, at: new Date().toISOString() };
       } else if (action === 'unfinalize') {
         state.finalized = null;
       } else {
@@ -156,7 +164,7 @@ module.exports = async (req, res) => {
         return;
       }
 
-      await kv.set(key, state, { ex: 60 * 60 * 24 * 21 });
+      await kv.set(key, state, { ex: TTL });
       res.status(200).json(state);
       return;
     }
