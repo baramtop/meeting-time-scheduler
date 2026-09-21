@@ -1,27 +1,23 @@
 const { kv } = require('@vercel/kv');
 
-function getSeoulNow() {
-  const now = new Date();
-  const seoulStr = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
-  return new Date(seoulStr);
-}
+const ADMIN_NAME = '면죄';
+const CONFIG_KEY = 'meeting:config';
+const DEFAULT_CONFIG = { weekday: 3, hour: 20, minute: 0 }; // 수요일 20:00 (KST)
+const KST_MS = 9 * 60 * 60 * 1000;
 
-// 다가오는(아직 지나지 않은) 수요일 오후 8시를 반환
-function getUpcomingWednesday8pm() {
-  const now = getSeoulNow();
-  const day = now.getDay(); // 0=일 ... 3=수 ... 6=토
-  let diff = (3 - day + 7) % 7;
-  const candidate = new Date(now);
-  candidate.setHours(20, 0, 0, 0);
-  candidate.setDate(now.getDate() + diff);
-  if (diff === 0 && candidate.getTime() <= now.getTime()) {
-    candidate.setDate(candidate.getDate() + 7);
-  }
-  return candidate;
+// 서버 타임존(UTC)과 무관하게 KST 기준으로 계산
+function getUpcomingDefault(config) {
+  const nowMs = Date.now();
+  const k = new Date(nowMs + KST_MS);
+  const diff = (config.weekday - k.getUTCDay() + 7) % 7;
+  let ms = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + diff, config.hour, config.minute) - KST_MS;
+  if (ms <= nowMs) ms += 7 * 24 * 60 * 60 * 1000;
+  return new Date(ms);
 }
 
 function getWeekId(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const k = new Date(date.getTime() + KST_MS);
+  const d = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -41,7 +37,8 @@ function emptyState(weekId, defaultDate) {
 
 module.exports = async (req, res) => {
   try {
-    const defaultDate = getUpcomingWednesday8pm();
+    const config = (await kv.get(CONFIG_KEY)) || DEFAULT_CONFIG;
+    const defaultDate = getUpcomingDefault(config);
     const weekId = getWeekId(defaultDate);
     const key = `meeting:${weekId}`;
 
@@ -56,6 +53,30 @@ module.exports = async (req, res) => {
       const { action, name } = body;
       if (!name || !String(name).trim()) {
         res.status(400).json({ error: '이름을 입력해주세요.' });
+        return;
+      }
+
+      if (action === 'set_default') {
+        if (String(name).trim() !== ADMIN_NAME) {
+          res.status(403).json({ error: '관리자만 기본 일정을 변경할 수 있습니다.' });
+          return;
+        }
+        const dt = new Date(body.dateTime);
+        if (!body.dateTime || isNaN(dt.getTime())) {
+          res.status(400).json({ error: '날짜/시간을 입력해주세요.' });
+          return;
+        }
+        let newConfig = config;
+        if (body.recurring) {
+          const k = new Date(dt.getTime() + KST_MS);
+          newConfig = { weekday: k.getUTCDay(), hour: k.getUTCHours(), minute: k.getUTCMinutes() };
+          await kv.set(CONFIG_KEY, newConfig);
+        }
+        // 기본 일정이 바뀌면 기존 응답/확정은 초기화
+        const newWeekId = getWeekId(getUpcomingDefault(newConfig));
+        const fresh = emptyState(newWeekId, dt);
+        await kv.set(`meeting:${newWeekId}`, fresh, { ex: 60 * 60 * 24 * 21 });
+        res.status(200).json(fresh);
         return;
       }
 

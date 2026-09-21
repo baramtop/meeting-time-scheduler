@@ -1,4 +1,5 @@
 const NAME_KEY = 'meetingScheduler.myName';
+const ADMIN_NAME = '면죄';
 
 const el = {
   nameInput: document.getElementById('name-input'),
@@ -19,6 +20,10 @@ const el = {
   altDatetime: document.getElementById('alt-datetime'),
   altProposeBtn: document.getElementById('alt-propose-btn'),
   proposalList: document.getElementById('proposal-list'),
+  adminCard: document.getElementById('admin-card'),
+  adminDatetime: document.getElementById('admin-datetime'),
+  adminRecurring: document.getElementById('admin-recurring'),
+  adminSetBtn: document.getElementById('admin-set-btn'),
 };
 
 let currentState = null;
@@ -74,6 +79,8 @@ async function postAction(payload) {
 function render(state) {
   currentState = state;
   const myName = getMyName();
+
+  el.adminCard.hidden = myName !== ADMIN_NAME;
 
   // 기본 일정
   el.defaultTimeDisplay.textContent = formatDateTime(state.defaultDateTime);
@@ -158,7 +165,7 @@ el.btnNo.addEventListener('click', async () => {
 
 el.finalizeDefaultBtn.addEventListener('click', async () => {
   if (!currentState) return;
-  if (!confirm('기본 일정(매주 수요일 오후 8시)으로 이번 주 모임을 확정할까요?')) return;
+  if (!confirm('기본 일정으로 이번 주 모임을 확정할까요?')) return;
   const state = await postAction({ action: 'finalize', dateTime: currentState.defaultDateTime });
   render(state);
 });
@@ -178,6 +185,23 @@ el.altProposeBtn.addEventListener('click', async () => {
   const iso = new Date(v).toISOString();
   const state = await postAction({ action: 'propose', dateTime: iso });
   el.altDatetime.value = '';
+  render(state);
+});
+
+el.adminSetBtn.addEventListener('click', async () => {
+  const v = el.adminDatetime.value;
+  if (!v) {
+    alert('날짜와 시간을 선택해주세요.');
+    return;
+  }
+  const recurring = el.adminRecurring.checked;
+  const msg = recurring
+    ? '기본 일정을 변경하고 다음 주부터도 같은 요일·시간으로 할까요? (이번 주 응답이 초기화됩니다)'
+    : '이번 주 기본 일정만 변경할까요? (이번 주 응답이 초기화됩니다)';
+  if (!confirm(msg)) return;
+  const state = await postAction({ action: 'set_default', dateTime: new Date(v).toISOString(), recurring });
+  el.adminDatetime.value = '';
+  el.adminRecurring.checked = false;
   render(state);
 });
 

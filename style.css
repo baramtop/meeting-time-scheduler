@@ -266,3 +266,15 @@ button:hover { background: var(--primary-dark); }
   .time-display { background: #23233a; }
   .vote-btn { background: #23233a; }
 }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 14px;
+  color: #a1a1aa;
+}
+.check-row input {
+  width: auto;
+}

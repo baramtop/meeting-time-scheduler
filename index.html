@@ -10,7 +10,7 @@
   <div class="wrap">
     <header>
       <h1>📅 모임 시간 정하기</h1>
-      <p class="sub">기본 일정: 매주 수요일 오후 8시</p>
+      <p class="sub">기본 일정에 가능/불가능을 표시해요</p>
     </header>
 
     <section class="card" id="name-card">
@@ -49,6 +49,16 @@
         </div>
       </div>
       <button id="finalize-default-btn" class="ghost-btn">이 시간으로 확정하기</button>
+    </section>
+
+    <section class="card" id="admin-card" hidden>
+      <h2>🔧 기본 일정 변경 (관리자)</h2>
+      <p class="hint">변경하면 이번 주 응답과 확정이 초기화됩니다.</p>
+      <div class="row">
+        <input id="admin-datetime" type="datetime-local" />
+        <button id="admin-set-btn">변경</button>
+      </div>
+      <label class="check-row"><input id="admin-recurring" type="checkbox" /> 다음 주부터도 이 요일·시간을 기본으로</label>
     </section>
 
     <section class="card" id="alt-card">
