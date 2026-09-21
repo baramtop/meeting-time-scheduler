@@ -61,6 +61,15 @@ module.exports = async (req, res) => {
           res.status(403).json({ error: '관리자만 기본 일정을 변경할 수 있습니다.' });
           return;
         }
+        const adminPin = process.env.ADMIN_PIN;
+        if (!adminPin) {
+          res.status(500).json({ error: '서버에 ADMIN_PIN이 설정되지 않았습니다.' });
+          return;
+        }
+        if (String(body.pin || '') !== adminPin) {
+          res.status(403).json({ error: '관리자 비밀번호가 올바르지 않습니다.' });
+          return;
+        }
         const dt = new Date(body.dateTime);
         if (!body.dateTime || isNaN(dt.getTime())) {
           res.status(400).json({ error: '날짜/시간을 입력해주세요.' });

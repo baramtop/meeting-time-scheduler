@@ -199,7 +199,9 @@ el.adminSetBtn.addEventListener('click', async () => {
     ? '기본 일정을 변경하고 다음 주부터도 같은 요일·시간으로 할까요? (이번 주 응답이 초기화됩니다)'
     : '이번 주 기본 일정만 변경할까요? (이번 주 응답이 초기화됩니다)';
   if (!confirm(msg)) return;
-  const state = await postAction({ action: 'set_default', dateTime: new Date(v).toISOString(), recurring });
+  const pin = prompt('관리자 비밀번호를 입력하세요.');
+  if (!pin) return;
+  const state = await postAction({ action: 'set_default', dateTime: new Date(v).toISOString(), recurring, pin });
   el.adminDatetime.value = '';
   el.adminRecurring.checked = false;
   render(state);
