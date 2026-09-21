@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>모임 시간 정하기</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>📅 모임 시간 정하기</h1>
+      <p class="sub">기본 일정: 매주 수요일 오후 8시</p>
+    </header>
+
+    <section class="card" id="name-card">
+      <label for="name-input">내 이름</label>
+      <div class="row">
+        <input id="name-input" type="text" placeholder="이름을 입력하세요" autocomplete="off" />
+        <button id="name-save-btn">저장</button>
+      </div>
+      <p class="hint" id="name-current"></p>
+    </section>
+
+    <section class="card" id="finalized-card" hidden>
+      <div class="finalized-banner">
+        <div class="finalized-label">✅ 이번 주 모임 확정</div>
+        <div class="finalized-time" id="finalized-time"></div>
+        <div class="finalized-meta" id="finalized-meta"></div>
+        <button id="unfinalize-btn" class="ghost-btn">확정 취소</button>
+      </div>
+    </section>
+
+    <section class="card" id="default-card">
+      <h2>기본 일정</h2>
+      <div class="time-display" id="default-time-display">-</div>
+      <div class="row buttons">
+        <button id="btn-yes" class="btn yes">가능</button>
+        <button id="btn-no" class="btn no">불가능</button>
+      </div>
+      <div class="response-lists">
+        <div>
+          <h3>가능 <span id="yes-count">0</span>명</h3>
+          <ul id="yes-list" class="tag-list"></ul>
+        </div>
+        <div>
+          <h3>불가능 <span id="no-count">0</span>명</h3>
+          <ul id="no-list" class="tag-list"></ul>
+        </div>
+      </div>
+      <button id="finalize-default-btn" class="ghost-btn">이 시간으로 확정하기</button>
+    </section>
+
+    <section class="card" id="alt-card">
+      <h2>대안 시간 제안</h2>
+      <p class="hint">수요일 8시가 안 되는 분이 있다면, 다른 날짜/시간을 제안하고 투표해보세요.</p>
+      <div class="row">
+        <input id="alt-datetime" type="datetime-local" />
+        <button id="alt-propose-btn">제안하기</button>
+      </div>
+      <ul id="proposal-list" class="proposal-list"></ul>
+    </section>
+
+    <p class="footer-note">참여인원 8~10명 · 매주 자동으로 새 일정으로 초기화됩니다</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
