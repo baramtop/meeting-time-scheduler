@@ -117,6 +117,7 @@ function renderDays(state, myName) {
   const days = weekDays(state.defaultDateTime);
   const defaultDay = days.find((d) => d.date === toKst(state.defaultDateTime).toISOString().slice(0, 10));
   const avail = state.availability || {};
+  const fromTimes = state.fromTimes || {};
   const members = new Set([...Object.keys(state.responses || {}), ...Object.keys(avail)]);
   const today = todayKst();
   const finalizedDay = state.finalized ? toKst(state.finalized.dateTime).toISOString().slice(0, 10) : null;
@@ -126,22 +127,25 @@ function renderDays(state, myName) {
     const no = [];
     members.forEach((n) => {
       const v = (avail[n] || {})[d.date];
-      if (v === 'yes') yes.push(n);
+      if (v === 'yes') yes.push({ name: n, from: (fromTimes[n] || {})[d.date] || '' });
       else if (v === 'no') no.push(n);
     });
-    return { ...d, yes, no, none: members.size - yes.length - no.length, past: d.date < today };
+    // 가능한 사람들의 시작 시각 중 가장 늦은 값 = 모두 모일 수 있는 시각 (없으면 시간 제한 없음)
+    const lateFrom = yes.reduce((m, y) => (y.from > m ? y.from : m), '');
+    return { ...d, yes, no, lateFrom, none: members.size - yes.length - no.length, past: d.date < today };
   });
 
   // 추천: 불가 0명이면서 가능이 가장 많은 날 (지난 날 제외)
   const candidates = stats.filter((s) => !s.past && s.no.length === 0 && s.yes.length > 0);
   const maxYes = candidates.reduce((m, s) => Math.max(m, s.yes.length), 0);
   const best = new Set(candidates.filter((s) => s.yes.length === maxYes).map((s) => s.date));
+  const lateText = (s) => (s.lateFrom ? ` (${s.lateFrom}부터)` : '');
 
   if (members.size === 0) {
     el.bestBox.className = 'best-box';
     el.bestBox.textContent = '아직 응답한 사람이 없어요.';
   } else if (best.size > 0) {
-    const names = stats.filter((s) => best.has(s.date)).map((s) => s.label).join(', ');
+    const names = stats.filter((s) => best.has(s.date)).map((s) => s.label + lateText(s)).join(', ');
     el.bestBox.className = 'best-box good';
     el.bestBox.innerHTML = `⭐ 추천: <b>${escapeHtml(names)}</b><br><span>불가 0명 · 가능 ${maxYes}명 (응답 ${members.size}명 중)</span>`;
   } else {
@@ -164,11 +168,16 @@ function renderDays(state, myName) {
           <span class="day-count">가능 ${s.yes.length} · 불가 ${s.no.length}${s.none > 0 ? ` · 미응답 ${s.none}` : ''}</span>
         </div>
         ${s.no.length ? `<div class="day-names no-names">불가: ${s.no.map(escapeHtml).join(', ')}</div>` : ''}
-        ${s.yes.length ? `<div class="day-names yes-names">가능: ${s.yes.map(escapeHtml).join(', ')}</div>` : ''}
+        ${s.yes.length ? `<div class="day-names yes-names">가능: ${s.yes.map((y) => escapeHtml(y.name) + (y.from ? `<span class="from-tag">${y.from}~</span>` : '')).join(', ')}</div>` : ''}
         <div class="day-actions">
           <button class="day-btn yes ${mine === 'yes' ? 'active' : ''}" data-day="${s.date}" data-val="yes" ${dis}>가능</button>
           <button class="day-btn no ${mine === 'no' ? 'active' : ''}" data-day="${s.date}" data-val="no" ${dis}>불가</button>
           <button class="day-btn fin-btn" data-confirm="${s.date}" ${dis}>이 날로 확정</button>
+        </div>
+        <div class="from-row">
+          <label>몇 시부터 가능? (비우면 시간 상관없음)</label>
+          <input type="time" class="from-input" data-from-day="${s.date}" value="${(fromTimes[myName] || {})[s.date] || ''}" ${dis} />
+          ${(fromTimes[myName] || {})[s.date] ? `<button class="from-clear" data-from-clear="${s.date}" ${dis}>지우기</button>` : ''}
         </div>
       </li>`;
   }).join('');
@@ -216,7 +225,14 @@ function render(state) {
 
 async function refresh() {
   try {
-    render(await fetchState());
+    const state = await fetchState();
+    // 시간 입력 중에는 화면을 다시 그리지 않음 (입력창이 초기화되는 것 방지)
+    const a = document.activeElement;
+    if (a && a.classList && a.classList.contains('from-input')) {
+      currentState = state;
+      return;
+    }
+    render(state);
   } catch (e) {
     console.error(e);
   }
@@ -262,6 +278,11 @@ el.dayList.addEventListener('click', async (e) => {
     render(await postAction({ action: 'set_day', date: dayBtn.dataset.day, value }));
     return;
   }
+  const clearBtn = e.target.closest('[data-from-clear]');
+  if (clearBtn && !clearBtn.disabled) {
+    render(await postAction({ action: 'set_from', date: clearBtn.dataset.fromClear, from: '' }));
+    return;
+  }
   const finBtn = e.target.closest('[data-confirm]');
   if (finBtn && !finBtn.disabled) {
     const time = el.confirmTime.value || '20:00';
@@ -270,9 +291,25 @@ el.dayList.addEventListener('click', async (e) => {
       alert('확정 시간을 확인해주세요.');
       return;
     }
-    if (!confirm(`${formatDateTime(dt.toISOString())}로 확정할까요?`)) return;
+    const dayInfo = currentState && currentState.fromTimes
+      ? Object.entries(currentState.fromTimes)
+          .map(([n, m]) => [n, m[finBtn.dataset.confirm]])
+          .filter(([n, t]) => t && t > time && ((currentState.availability[n] || {})[finBtn.dataset.confirm] === 'yes'))
+      : [];
+    const warn = dayInfo.length
+      ? `
+
+⚠️ 이 시간에 아직 안 되는 사람: ${dayInfo.map(([n, t]) => `${n}(${t}부터)`).join(', ')}`
+      : '';
+    if (!confirm(`${formatDateTime(dt.toISOString())}로 확정할까요?${warn}`)) return;
     render(await postAction({ action: 'finalize', dateTime: dt.toISOString() }));
   }
+});
+
+el.dayList.addEventListener('change', async (e) => {
+  const input = e.target.closest('[data-from-day]');
+  if (!input) return;
+  render(await postAction({ action: 'set_from', date: input.dataset.fromDay, from: input.value }));
 });
 
 el.adminSetBtn.addEventListener('click', async () => {

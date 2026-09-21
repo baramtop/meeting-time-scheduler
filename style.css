@@ -251,6 +251,28 @@ button:hover { background: var(--primary-dark); }
 .day-btn.fin-btn:hover { background: #eef2ff; }
 .day-btn:disabled { cursor: not-allowed; }
 
+.from-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.from-row label { margin: 0; font-size: 12px; flex: 1 1 100%; }
+.from-input { flex: 0 0 auto; }
+.from-clear {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.from-tag {
+  margin-left: 2px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 .confirm-time-row {
   display: flex;
   align-items: center;

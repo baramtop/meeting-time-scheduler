@@ -62,6 +62,7 @@ function emptyState(weekId, defaultDate) {
     defaultDateTime: defaultDate.toISOString(),
     responses: {},
     availability: {}, // { 이름: { 'YYYY-MM-DD': 'yes' | 'no' } }
+    fromTimes: {}, // { 이름: { 'YYYY-MM-DD': 'HH:MM' } } 가능한 시작 시각
     finalized: null,
   };
 }
@@ -69,6 +70,7 @@ function emptyState(weekId, defaultDate) {
 function normalize(state) {
   state.responses = state.responses || {};
   state.availability = state.availability || {};
+  state.fromTimes = state.fromTimes || {};
   return state;
 }
 
@@ -130,25 +132,48 @@ module.exports = async (req, res) => {
       const state = normalize((await kv.get(key)) || emptyState(weekId, defaultDate));
       const defaultDay = kstDateStr(state.defaultDateTime);
 
-      if (action === 'respond') {
-        // 기본 일정에 대한 가능/불가능 (요일별 체크에도 같이 반영)
-        const value = body.value === 'no' ? 'no' : 'yes';
-        state.responses[name] = value;
-        state.availability[name] = { ...(state.availability[name] || {}), [defaultDay]: value };
-      } else if (action === 'set_day') {
-        const date = String(body.date || '');
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-          res.status(400).json({ error: '날짜가 올바르지 않습니다.' });
-          return;
-        }
+      // 요일 응답 반영 + 기본 일정 날짜면 기본 일정 응답과 동기화
+      // value: 'yes' | 'no' | '' (해제), from: 'HH:MM' (가능한 시작 시각, 가능일 때만)
+      const setDay = (date, value, from) => {
         const mine = { ...(state.availability[name] || {}) };
-        if (body.value === 'yes' || body.value === 'no') mine[date] = body.value;
+        const times = { ...(state.fromTimes[name] || {}) };
+        if (value === 'yes' || value === 'no') mine[date] = value;
         else delete mine[date];
+        if (value === 'yes' && from) times[date] = from;
+        else if (value !== 'yes') delete times[date];
         state.availability[name] = mine;
-        // 기본 일정 날짜를 바꾸면 기본 일정 응답도 같이 맞춤
+        state.fromTimes[name] = times;
         if (date === defaultDay) {
           if (mine[date]) state.responses[name] = mine[date];
           else delete state.responses[name];
+        }
+      };
+      const validDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+
+      if (action === 'respond') {
+        // 기본 일정에 대한 가능/불가능
+        setDay(defaultDay, body.value === 'no' ? 'no' : 'yes', (state.fromTimes[name] || {})[defaultDay]);
+      } else if (action === 'set_day') {
+        const date = String(body.date || '');
+        if (!validDate(date)) {
+          res.status(400).json({ error: '날짜가 올바르지 않습니다.' });
+          return;
+        }
+        setDay(date, body.value, (state.fromTimes[name] || {})[date]);
+      } else if (action === 'set_from') {
+        // 몇 시부터 가능한지: 시간을 넣으면 그 날은 '가능'으로 표시됨, 빈 값이면 시각만 해제
+        const date = String(body.date || '');
+        const from = String(body.from || '');
+        if (!validDate(date) || (from && !/^([01]\d|2[0-3]):[0-5]\d$/.test(from))) {
+          res.status(400).json({ error: '날짜 또는 시간이 올바르지 않습니다.' });
+          return;
+        }
+        if (from) {
+          setDay(date, 'yes', from);
+        } else {
+          const times = { ...(state.fromTimes[name] || {}) };
+          delete times[date];
+          state.fromTimes[name] = times;
         }
       } else if (action === 'finalize') {
         const dt = new Date(body.dateTime);
